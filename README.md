@@ -1,7 +1,7 @@
 # @the-heimdall/sample-sdk
 
 A throwaway package used to rehearse publishing to npm from GitHub Actions, before
-applying the same pipeline to the real `@joyfill/components` SDK.
+applying the same pipeline to the parent SDK.
 
 ## How releasing works
 
