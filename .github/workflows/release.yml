@@ -7,6 +7,17 @@ on:
     tags:
       - 'v*'
 
+# Publishing uses npm Trusted Publishing (OIDC) rather than a long-lived
+# NPM_TOKEN. GitHub mints a short-lived identity token for this specific
+# repo + workflow, and npm verifies it against the trusted publisher
+# configured on the package. Nothing secret is stored anywhere.
+#
+# This replaced token auth because npm is retiring 2FA-bypass tokens:
+# https://github.blog/changelog/2026-07-31-restricting-npm-bypass-2fa-granular-access-tokens/
+permissions:
+  contents: read
+  id-token: write   # required for OIDC - without it, npm falls back to a token
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -33,16 +44,32 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # Repeated from ci.yml on purpose: nothing stops someone tagging a
       # commit that never went through a pull request.
       - name: Lint
         run: npm run lint
 
+      # Trusted publishing needs npm >= 11.5.1. Node 24 already ships a
+      # newer npm than that, but pinning makes the requirement explicit
+      # instead of depending on whatever the runner image happens to have.
+      - name: Check npm supports trusted publishing
+        run: |
+          NPM_V="$(npm --version)"
+          echo "npm $NPM_V / node $(node --version)"
+          # sort -V puts the lower version first; if that isn't 11.5.1 then
+          # the installed npm is older and needs upgrading.
+          if [ "$(printf '%s\n11.5.1\n' "$NPM_V" | sort -V | head -1)" != "11.5.1" ]; then
+            echo "npm $NPM_V is older than 11.5.1 - upgrading"
+            npm install -g npm@latest
+          fi
+
       # A version containing a "-" (e.g. 0.0.2-rc1) publishes under the "beta"
       # dist-tag so it does NOT become the default `npm install` for consumers.
+      #
+      # No NPM_TOKEN here: npm detects the OIDC environment automatically and
+      # authenticates with the short-lived identity token from `id-token: write`.
+      # This also attaches build provenance to the published package for free.
       - name: Publish to npm
         run: |
           VERSION=$(node -p "require('./package.json').version")
@@ -53,5 +80,3 @@ jobs:
             echo "Stable ($VERSION) -> publishing under 'latest'"
             npm publish
           fi
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
