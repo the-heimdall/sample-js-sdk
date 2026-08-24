@@ -1,0 +1,31 @@
+name: CI
+
+# Runs on every pull request and every push to main.
+# This workflow NEVER publishes anything - it only checks the code.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # NPM_TOKEN is needed here even though we don't publish, because the
+      # committed .npmrc references ${NPM_TOKEN}. Without it npm sends the
+      # literal string as a bearer token and the registry answers 401.
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Lint
+        run: npm run lint

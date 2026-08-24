@@ -1,0 +1,57 @@
+name: Release
+
+# Only a pushed tag starting with "v" triggers a publish.
+# Pushing to a branch does nothing here.
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Catches the classic mistake of tagging v0.0.2 while package.json
+      # still says 0.0.1. Fails in seconds instead of publishing the wrong thing.
+      - name: Make sure the tag matches package.json
+        run: |
+          PKG="v$(node -p "require('./package.json').version")"
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "package.json says $PKG, tag says $TAG"
+          if [ "$PKG" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match package.json version $PKG"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Repeated from ci.yml on purpose: nothing stops someone tagging a
+      # commit that never went through a pull request.
+      - name: Lint
+        run: npm run lint
+
+      # A version containing a "-" (e.g. 0.0.2-rc1) publishes under the "beta"
+      # dist-tag so it does NOT become the default `npm install` for consumers.
+      - name: Publish to npm
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" == *-* ]]; then
+            echo "Prerelease ($VERSION) -> publishing under the 'beta' tag"
+            npm publish --tag beta
+          else
+            echo "Stable ($VERSION) -> publishing under 'latest'"
+            npm publish
+          fi
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

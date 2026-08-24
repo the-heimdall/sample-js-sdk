@@ -1,0 +1,24 @@
+{
+  "name": "@the-heimdall/sample-sdk",
+  "version": "0.0.1",
+  "description": "Throwaway package for rehearsing the npm publish pipeline from GitHub Actions",
+  "type": "module",
+  "main": "src/index.js",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "lint": "eslint src"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/the-heimdall/sample-js-sdk.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
+}
