@@ -1,5 +1,5 @@
 {
-  "name": "@the-heimdall/sample-sdk",
+  "name": "@the-heimdall/sample-js-sdk",
   "version": "0.0.1",
   "description": "Throwaway package for rehearsing the npm publish pipeline from GitHub Actions",
   "type": "module",

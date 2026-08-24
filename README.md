@@ -27,31 +27,39 @@ of `latest`, so a release candidate never becomes the default install.
 
 ## How authentication works
 
-`.npmrc` is committed but contains **no secret** — only a reference to an environment
-variable:
+There is **no npm token anywhere** — not in this repo, not in GitHub secrets, not on
+your laptop beyond your own login.
 
-```
-//registry.npmjs.org/:_authToken=${NPM_TOKEN}
-```
+CI publishes using **npm Trusted Publishing (OIDC)**. GitHub mints a short-lived
+identity token scoped to this exact repository and workflow, and npm verifies it
+against the trusted publisher configured on the package. Nothing long-lived exists
+to leak.
 
-That same file works in two places because each supplies `NPM_TOKEN` differently:
+This replaced token auth because npm is
+[retiring 2FA-bypass tokens](https://github.blog/changelog/2026-07-31-restricting-npm-bypass-2fa-granular-access-tokens/):
+such tokens lose direct publish capability entirely in January 2027.
 
-- **CI** — GitHub injects it from the `NPM_TOKEN` repository secret
-- **Your laptop** — 1Password injects it for a single command
+> **Do not commit an `.npmrc` with an `_authToken` line for registry.npmjs.org.**
+> A project-level `.npmrc` overrides your user-level `~/.npmrc`, so it silently
+> breaks `npm login` for everyone working in the repo — and the resulting failure
+> reports as `404 Not Found`, not `401`, because npm hides the existence of scoped
+> packages you can't prove access to. This repo learned that the hard way.
+>
+> Committing scope lines for a *private* registry (e.g. `@fortawesome:registry=...`)
+> is fine and normal — it's specifically an auth token for your publish target that
+> causes the conflict.
 
 ## Working locally
 
-Secrets are never written to disk. `.env.op` holds 1Password *pointers*, not values:
-
 ```bash
-# check the token resolves
-op run --env-file=.env.op -- node -e "console.log(process.env.NPM_TOKEN ? 'token loaded' : 'NOT loaded')"
-
-# rehearse a publish without touching the registry
-op run --env-file=.env.op -- npm publish --dry-run
+npm install
+npm run lint
+npm publish --dry-run   # packages everything, touches no registry
 ```
+
+If you ever need to publish by hand, `npm login` is all that's required.
 
 ## Setup required once
 
-- A `NPM_TOKEN` repository secret (npm Granular Access Token, read+write, scoped to `@the-heimdall`)
-- A 1Password item `npm-publish-token` in the `Joyfill` vault, holding the same token
+- A **trusted publisher** on the package at npmjs.com → Settings → Trusted Publisher:
+  organization/user `the-heimdall`, repository `sample-js-sdk`, workflow `release.yml`
